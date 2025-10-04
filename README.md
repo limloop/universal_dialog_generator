@@ -1,9 +1,9 @@
 # Universal Dialog Generator
 
-🌍 **Универсальный генератор диалогов на multiple языках с поддержкой любых OpenAI-совместимых API**
+🌍 **Universal multi-language dialog generator with support for any OpenAI-compatible APIs**
 
-[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/limloop/universal_dialog_generator/blob/main/LICENSE)
+<details>
+<summary><i>🇷🇺 Русская версия / Russian version...</i></summary>
 
 ## 🚀 Возможности
 
@@ -194,3 +194,195 @@ universal_dialog_generator/
 **Низкая производительность:**
 - Увеличьте `threads` в конфигурации
 - Проверьте сетевую задержку до API
+
+</details>
+
+## 🚀 Features
+
+- **Multi-language** - Generate dialogues in any language
+- **Universal** - Works with any OpenAI-compatible APIs
+- **Multi-threading** - Parallel generation for maximum performance
+- **Customization** - Flexible configuration of themes, structures and styles
+- **Safety** - Thread-safe writing and error handling
+- **Scalability** - File rotation and automatic recovery
+
+## 📦 Quick Start
+
+### 1. Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/limloop/universal_dialog_generator.git
+cd universal-dialog-generator
+
+# Install dependencies
+pip install -r requirements.txt
+```
+
+### 2. Configuration
+
+Edit `config.json`:
+
+```json
+{
+  "api": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "your-api-key-here",
+    "model": "gpt-3.5-turbo"
+  },
+  "generation": {
+    "threads": 2,
+    "languages": [
+      {"code": "ru", "name": "Russian"},
+      {"code": "en", "name": "English"}
+    ]
+  }
+}
+```
+
+### 3. Run
+
+```bash
+python main.py
+```
+
+## ⚙️ Configuration
+
+### Supported API Providers
+
+- **OpenAI** - `https://api.openai.com/v1`
+- **LocalAI** - `http://localhost:8080/v1`
+- **Any OpenAI-compatible** - any compatible API
+
+### Main config.json Parameters
+
+```json
+{
+  "generation": {
+    "threads": 2,                      // Number of worker threads
+    "temperature": {"min": 0.5, "max": 0.8},
+    "dialog_lines": {"min": 4, "max": 16},
+    "languages": [                     // List of languages for generation
+      {"code": "ru", "name": "Russian"},
+      {"code": "en", "name": "English"}
+    ]
+  },
+  "api": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "your-api-key",        // Your API key
+    "model": "gpt-3.5-turbo",         // Model for generation
+    "timeout": 30,
+    "max_tokens": 2000
+  },
+  "prompt_templates": {               // Templates for theme generation
+    "base": "Create a dialogue in ${language_name}...",
+    "templates": ["Theme {concept} in {domain}"],
+    "words": {
+      "concept": ["evolution", "synthesis"],
+      "domain": ["philosophy", "science"]
+    }
+  },
+  "output": {
+    "filename": "dialogues.jsonl",    // Output file
+    "max_file_size_mb": 100,          // Max size before rotation
+    "backup_count": 5                 // Number of backup files
+  }
+}
+```
+
+## 🎯 Usage Examples
+
+### Educational Dialogues
+```json
+"prompt_templates": {
+  "base": "Create an educational dialogue in ${language_name}...",
+  "templates": ["Explanation of {concept} through examples from {domain}"],
+  "words": {
+    "concept": ["mathematics", "physics", "history"],
+    "domain": ["daily life", "technology", "nature"]
+  }
+}
+```
+
+### Business Dialogues
+```json
+"templates": [
+  "Discussion of {business_topic} in the context of {industry}",
+  "Dialogue about {strategy} and its implementation in {company_size}"
+],
+"words": {
+  "business_topic": ["strategy", "marketing", "management"],
+  "industry": ["IT", "retail", "finance"],
+  "strategy": ["growth", "optimization", "innovation"],
+  "company_size": ["startup", "medium business", "corporation"]
+}
+```
+
+### Artistic Dialogues
+```json
+"templates": [
+  "Dialogue between {character_a} and {character_b} about {topic}",
+  "Conversation in {setting} about {theme}"
+],
+"words": {
+  "character_a": ["detective", "scientist", "artist"],
+  "character_b": ["witness", "student", "collector"],
+  "setting": ["old castle", "space station", "cafe"],
+  "theme": ["mystery", "discovery", "love"]
+}
+```
+
+## 📊 Output Data
+
+Dialogues are saved in JSONL format:
+
+```json
+{
+  "theme": "Discussion about artificial intelligence",
+  "dialog": [
+    "Do you think AI will change our society?",
+    "Absolutely! But it's important to understand how exactly...",
+    "Can you give specific examples?",
+    "Of course! Let's take medicine..."
+  ],
+  "language": "en"
+}
+```
+
+## 🛠️ Development
+
+### Project Structure
+
+```
+universal_dialog_generator/
+├── config/             # Configuration management
+├── core/               # Core generation components
+├── storage/            # Thread-safe data writing
+├── workers/            # Multi-threaded processing
+├── main.py             # Entry point
+├── config.json         # Configuration
+└── requirements.txt    # Dependencies
+```
+
+### Adding New Templates
+
+1. Add new templates to `prompt_templates.templates`
+2. Extend dictionaries in `prompt_templates.words`
+3. Update base prompt in `prompt_templates.base`
+
+## 🐛 Troubleshooting
+
+### Common Issues:
+
+**Empty output:**
+- Check API key and URL
+- Ensure model is available
+- Check API quotas
+
+**Validation errors:**
+- Check `output_schema` structure
+- Ensure prompt returns valid JSON
+
+**Low performance:**
+- Increase `threads` in configuration
+- Check network latency to API
