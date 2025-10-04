@@ -195,6 +195,13 @@ universal_dialog_generator/
 - Увеличьте `threads` в конфигурации
 - Проверьте сетевую задержку до API
 
+### 📚 Дополнительные инструменты
+
+В папке `scripts/` доступны вспомогательные утилиты:
+
+- **🧹 Dialog Cleaner** - очистка диалогов от артефактов генерации (китайские иероглифы, опечатки и др.)
+- Подробная документация: [scripts/dialog_cleaner.md](https://github.com/limloop/universal_dialog_generator/blob/main/scripts/dialog_cleaner.md)
+
 </details>
 
 ## 🚀 Features
@@ -386,3 +393,10 @@ universal_dialog_generator/
 **Low performance:**
 - Increase `threads` in configuration
 - Check network latency to API
+
+### 📚 Additional Tools
+
+The `scripts/` folder contains helper utilities:
+
+- **🧹 Dialog Cleaner** - cleans dialogues from generation artifacts (Chinese characters, typos, etc.)
+- Detailed documentation: [scripts/dialog_cleaner.md](https://github.com/limloop/universal_dialog_generator/tree/main/scripts/dialog_cleaner.md)
