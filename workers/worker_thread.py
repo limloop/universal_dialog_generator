@@ -1,5 +1,5 @@
 """
-Рабочий поток для генерации диалогов с полной обработкой ошибок и мониторингом состояния
+Рабочий поток для генерации данных с полной обработкой ошибок и мониторингом состояния
 """
 
 import threading
@@ -11,13 +11,13 @@ from typing import Dict, Any, Optional, Callable
 from core.theme_generator import ThemeGenerator
 from core.prompt_engine import PromptEngine
 from core.api_client import APIClient
-from core.dialog_validator import DialogValidator
+from core.validator import UniversalJsonValidator
 from storage.thread_safe_writer import ThreadSafeWriter
 
 
 class WorkerThread(threading.Thread):
     """
-    Рабочий поток для параллельной генерации групп диалогов
+    Рабочий поток для параллельной генерации данных
     """
     
     def __init__(self, 
@@ -76,8 +76,8 @@ class WorkerThread(threading.Thread):
             # API клиент
             self.api_client = APIClient(self.config['api'])
             
-            # Валидатор диалогов
-            self.validator = DialogValidator(self.config['output_schema'])
+            # Валидатор данных (универсальный)
+            self.validator = UniversalJsonValidator(self.config['output_schema'])
             
         except Exception as e:
             logging.error(f"❌ Worker {self.worker_id}: Ошибка инициализации компонентов: {e}")
@@ -93,7 +93,7 @@ class WorkerThread(threading.Thread):
             try:
                 self.is_working = True
                 
-                # Генерация одной группы диалогов
+                # Генерация одной группы данных
                 success = self._generate_single_group()
                 
                 if success:
@@ -137,54 +137,54 @@ class WorkerThread(threading.Thread):
     
     def _generate_single_group(self) -> bool:
         """
-        Генерация одной группы диалогов на всех языках
+        Генерация одной группы данных на всех языках
         
         Returns:
-            True если все диалоги группы успешно сгенерированы и сохранены
+            True если все данные группы успешно сгенерированы и сохранены
         """
         try:
             # Генерация темы
             theme = self.theme_generator.generate_theme()
             
             languages = self.config['generation']['languages']
-            successful_dialogs = 0
+            successful_items = 0
             
-            # Генерация диалогов для каждого языка
+            # Генерация данных для каждого языка
             for lang_config in languages:
                 if self._stop_requested:
                     return False
                 
-                dialog = self._generate_single_dialog(
+                data_item = self._generate_single_item(
                     language_code=lang_config['code'],
                     language_name=lang_config['name'],
                     theme=theme
                 )
                 
-                if dialog:
+                if data_item:
                     # Добавляем только необходимые метаданные
-                    dialog['theme'] = theme
-                    dialog['worker_id'] = self.worker_id
+                    data_item['theme'] = theme
+                    data_item['worker_id'] = self.worker_id
                     
                     # ФИЛЬТРУЕМ поля согласно output_schema
-                    filtered_dialog = self.validator.filter_output_fields(dialog)
+                    filtered_data = self.validator.filter_output_fields(data_item)
                     
-                    # Сохраняем отфильтрованный диалог
-                    if self.writer.write_dialog(filtered_dialog):
-                        successful_dialogs += 1
+                    # Сохраняем отфильтрованные данные
+                    if self.writer.write_dialog(filtered_data):
+                        successful_items += 1
                     else:
-                        logging.error(f"❌ Worker {self.worker_id}: Ошибка записи диалога")
+                        logging.error(f"❌ Worker {self.worker_id}: Ошибка записи данных")
                 
                 # Короткая пауза между языками
                 if not self._stop_requested:
                     time.sleep(0.2)
             
-            # Проверяем что все диалоги сгенерированы
-            success = successful_dialogs == len(languages)
+            # Проверяем что все данные сгенерированы
+            success = successful_items == len(languages)
             
             if success:
                 logging.info(f"🎯 Worker {self.worker_id}: Группа тем '{theme}' успешно сгенерирована ({len(languages)} языков)")
             else:
-                logging.warning(f"⚠️ Worker {self.worker_id}: Группа тем '{theme}' частично сгенерирована ({successful_dialogs}/{len(languages)})")
+                logging.warning(f"⚠️ Worker {self.worker_id}: Группа тем '{theme}' частично сгенерирована ({successful_items}/{len(languages)})")
             
             return success
             
@@ -192,12 +192,12 @@ class WorkerThread(threading.Thread):
             logging.error(f"❌ Worker {self.worker_id}: Ошибка генерации группы: {e}")
             return False
     
-    def _generate_single_dialog(self, 
-                              language_code: str, 
-                              language_name: str,
-                              theme: str) -> Optional[Dict[str, Any]]:
+    def _generate_single_item(self, 
+                            language_code: str, 
+                            language_name: str,
+                            theme: str) -> Optional[Dict[str, Any]]:
         """
-        Генерация одного диалога для конкретного языка
+        Генерация одного элемента данных для конкретного языка
         """
         try:
             # Случайная температура из диапазона
@@ -211,36 +211,96 @@ class WorkerThread(threading.Thread):
                 theme=theme
             )
             
-            # Генерация диалога через API
-            dialog_data = self.api_client.generate_dialog(
+            # Генерация данных через API
+            response_data = self.api_client.generate_dialog(
                 prompt=prompt,
                 temperature=temperature
             )
             
-            if not dialog_data:
+            if not response_data:
                 logging.warning(f"⚠️ Worker {self.worker_id}: Пустой ответ API для {language_code}")
                 return None
             
-            # Валидация диалога
-            if not self.validator.validate_dialog(dialog_data):
-                logging.warning(f"⚠️ Worker {self.worker_id}: Невалидный диалог для {language_code}")
+            # УНИВЕРСАЛЬНАЯ валидация данных (не только диалогов)
+            if not self._validate_data(response_data):
+                logging.warning(f"⚠️ Worker {self.worker_id}: Невалидные данные для {language_code}")
                 return None
             
             # Добавляем метаданные (только те, что нужны согласно output_schema)
-            dialog_data['language'] = language_code
-            dialog_data['temperature'] = round(temperature, 4)  # Округляем для читаемости
-            dialog_data['timestamp'] = time.time()
+            response_data['language'] = language_code
+            response_data['temperature'] = round(temperature, 4)  # Округляем для читаемости
+            response_data['timestamp'] = time.time()
             
-            # Очистка реплик
-            if 'dialog' in dialog_data:
-                dialog_data['dialog'] = self.validator.sanitize_replicas(dialog_data['dialog'])
+            # УНИВЕРСАЛЬНАЯ очистка данных (если есть поле 'dialog' - очищаем, иначе оставляем как есть)
+            if 'dialog' in response_data:
+                response_data['dialog'] = self.validator.sanitize_replicas(response_data['dialog'])
             
-            logging.debug(f"✅ Worker {self.worker_id}: Успешная генерация диалога на {language_code}")
-            return dialog_data
+            logging.debug(f"✅ Worker {self.worker_id}: Успешная генерация данных на {language_code}")
+            return response_data
             
         except Exception as e:
-            logging.error(f"❌ Worker {self.worker_id}: Ошибка генерации диалога на {language_code}: {e}")
+            logging.error(f"❌ Worker {self.worker_id}: Ошибка генерации данных на {language_code}: {e}")
             return None
+
+    def _validate_data(self, data: Dict[str, Any]) -> bool:
+        """
+        Универсальная валидация данных
+        
+        Args:
+            data: Данные для валидации
+            
+        Returns:
+            True если данные валидны
+        """
+        try:
+            # Пробуем использовать существующий валидатор диалогов
+            if hasattr(self.validator, 'validate_dialog'):
+                return self.validator.validate_dialog(data)
+            else:
+                # Если валидатор не имеет метода validate_dialog, делаем базовую проверку
+                return self._basic_data_validation(data)
+                
+        except Exception as e:
+            logging.warning(f"⚠️ Worker {self.worker_id}: Ошибка валидации, пробуем базовую проверку: {e}")
+            return self._basic_data_validation(data)
+    
+    def _basic_data_validation(self, data: Dict[str, Any]) -> bool:
+        """
+        Базовая валидация данных (универсальная)
+        
+        Args:
+            data: Данные для проверки
+            
+        Returns:
+            True если данные прошли базовую проверку
+        """
+        if not isinstance(data, dict):
+            logging.warning("⚠️ Данные не являются словарем")
+            return False
+        
+        if not data:
+            logging.warning("⚠️ Пустые данные")
+            return False
+        
+        # Проверяем наличие хотя бы одного поля из output_schema
+        required_fields = self.config['output_schema'].get('fields', [])
+        if required_fields:
+            has_required_field = any(field in data for field in required_fields)
+            if not has_required_field:
+                logging.warning(f"⚠️ Отсутствуют все поля из output_schema: {required_fields}")
+                return False
+        
+        # Проверяем что есть хотя бы одно непустое поле
+        has_content = any(
+            bool(value) and (not isinstance(value, str) or value.strip()) 
+            for value in data.values()
+        )
+        
+        if not has_content:
+            logging.warning("⚠️ Все поля пустые")
+            return False
+        
+        return True
     
     def request_stop(self) -> None:
         """
