@@ -83,7 +83,7 @@ class ConfigManager:
                             "type": "object",
                             "required": ["code", "name"],
                             "properties": {
-                                "code": {"type": "string", "pattern": "^[a-z]{2}$"},
+                                "code": {"type": "string", "pattern": "^[a-z_]*"},
                                 "name": {"type": "string", "minLength": 1}
                             }
                         }

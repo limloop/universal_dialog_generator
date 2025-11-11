@@ -122,7 +122,7 @@ class APIClient:
                 temperature=temperature,
                 max_tokens=self.api_config.get('max_tokens', 2000),
                 timeout=dynamic_timeout,
-                response_format={"type": "json_object"}
+                # response_format={"type": "json_object"}
             )
             
             return response
@@ -155,6 +155,8 @@ class APIClient:
         """
         try:
             content = response.choices[0].message.content.strip()
+            if not content:
+                content = response.choices[0].message.reasoning.partition("</think>")[2].strip()
             
             if not content:
                 logging.warning("⚠️ Пустой контент в ответе API")

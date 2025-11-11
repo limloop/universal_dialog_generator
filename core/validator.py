@@ -24,6 +24,25 @@ class UniversalJsonValidator:
         self.required_fields = output_schema.get('fields', [])
         self.example_structure = output_schema.get('example', {})
         
+        self.prefix_patterns = [
+            # Английские паттерны
+            r'^(User|Assistant|Human|AI|Bot):\s*',
+            r'^(user|assistant|human|ai|bot):\s*',
+            r'^(USER|ASSISTANT|HUMAN|AI|BOT):\s*',
+            
+            # Русские паттерны
+            r'^(Пользователь|Ассистент|Человек|ИИ|Бот):\s*',
+            r'^(пользователь|ассистент|человек|ии|бот):\s*',
+            r'^(ПОЛЬЗОВАТЕЛЬ|АССИСТЕНТ|ЧЕЛОВЕК|ИИ|БОТ):\s*',
+            
+            # Смешанные и другие варианты
+            r'^\[.*?\]:\s*',
+            r'^<.*?>:\s*',
+            r'^【.*?】:\s*',
+            r'^".*?":\s*',
+            r"^'.*?':\s*",
+        ]
+        
         # Минимальные требования к данным
         self.min_fields = 1  # Минимум одно поле должно быть заполнено
         self.max_field_length = 10000
@@ -268,6 +287,49 @@ class UniversalJsonValidator:
         else:
             return field_value
     
+    def sanitize_replicas(self, dialog_replicas: List[str]) -> List[str]:
+        """
+        Очистка реплик от префиксов и лишних символов
+        
+        Args:
+            dialog_replicas: Список реплик для очистки
+            
+        Returns:
+            Очищенный список реплик
+        """
+        cleaned_replicas = []
+        
+        for replica in dialog_replicas:
+            cleaned_replica = self._clean_replica(replica)
+            if cleaned_replica.strip():  # Не добавляем пустые реплики
+                cleaned_replicas.append(cleaned_replica)
+        
+        return cleaned_replicas
+    
+    def _clean_replica(self, replica: str) -> str:
+        """
+        Очистка одной реплики
+        
+        Args:
+            replica: Реплика для очистки
+            
+        Returns:
+            Очищенная реплика
+        """
+        cleaned_replica = replica
+        
+        # Удаляем префиксы
+        for pattern in self.prefix_patterns:
+            cleaned_replica = re.sub(pattern, '', cleaned_replica, flags=re.IGNORECASE)
+        
+        # Убираем лишние пробелы
+        cleaned_replica = cleaned_replica.strip()
+        
+        # Убираем кавычки в начале и конце если они есть
+        cleaned_replica = re.sub(r'^["\'](.*)["\']$', r'\1', cleaned_replica)
+        
+        return cleaned_replica
+
     def validate_json_syntax(self, json_string: str) -> Tuple[bool, Optional[Dict[str, Any]]]:
         """
         Проверка синтаксиса JSON
