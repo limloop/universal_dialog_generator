@@ -7,6 +7,7 @@ import json
 from typing import Dict, Any, Optional
 from string import Template
 import re
+import random
 
 
 class PromptEngine:
@@ -140,6 +141,7 @@ class PromptEngine:
             "Убедись что:",
             f"- Количество реплик: {self.line_range['min']}-{self.line_range['max']}",
             "- Все реплики в массиве 'dialog'",
+            "- Пользователь всегда говорит первым",
             "- Не используешь префиксы (User:, Assistant: и т.д.)",
             "- JSON валиден и правильно экранирован"
         ])
@@ -157,12 +159,13 @@ class PromptEngine:
         Returns:
             Простой промпт
         """
+
         return f"""
 Создай естественный диалог на {language_name} языке на тему: "{theme}"
 
 Требования:
 - Диалог между двумя персонажами
-- {self.line_range['min']}-{self.line_range['max']} реплик
+- {random.randint(self.line_range['min'], self.line_range['max']+1)} реплик
 - Естественный и engaging разговор
 - Без префиксов перед репликами
 - Конкретные примеры и объяснения
@@ -256,7 +259,8 @@ class PromptEngine:
 2. Используй конкретные примеры и объяснения
 3. Следуй строго указанному формату вывода
 4. Не добавляй дополнительный текст кроме запрошенного JSON
-5. Убедись что JSON валиден и правильно сформирован"""
+5. Убедись что JSON валиден и правильно сформирован
+6. Язык в вывода соответствует ожидаемому"""
     
     def get_engine_stats(self) -> Dict[str, Any]:
         """

@@ -3,6 +3,7 @@
 """
 
 import logging
+import json
 import time
 import random
 from typing import Dict, Any, Optional, List
@@ -157,13 +158,13 @@ class APIClient:
             content = response.choices[0].message.content.strip()
             if not content:
                 content = response.choices[0].message.reasoning.partition("</think>")[2].strip()
-            
+            content = content.replace("```json", "").replace("```", "")
+
             if not content:
                 logging.warning("⚠️ Пустой контент в ответе API")
                 return None
             
             # Парсим JSON
-            import json
             data = json.loads(content)
             
             # Обновляем статистику токенов
@@ -174,6 +175,7 @@ class APIClient:
             return data
             
         except json.JSONDecodeError as e:
+            print(response)
             logging.error(f"❌ Ошибка парсинга JSON из ответа API: {e}")
             logging.debug(f"Сырой ответ: {content[:200]}...")
             return None
