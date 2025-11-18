@@ -2,7 +2,7 @@
 Менеджер конфигурации с полной валидацией и безопасной загрузкой
 """
 
-import json
+import json5
 import logging
 import os
 import re
@@ -194,7 +194,7 @@ class ConfigManager:
                 if not file_content:
                     raise ConfigValidationError("Файл конфигурации пуст")
                 
-                self._original_config = json.loads(file_content)
+                self._original_config = json5.loads(file_content)
             
             # Валидация схемы
             self._validate_schema()
@@ -208,7 +208,7 @@ class ConfigManager:
             self._is_loaded = True
             logging.info(f"✅ Конфигурация успешно загружена из {self.config_path}")
             
-        except json.JSONDecodeError as e:
+        except json5.JSONDecodeError as e:
             raise ConfigValidationError(f"Ошибка парсинга JSON: {e}")
         except Exception as e:
             logging.error(f"❌ Ошибка загрузки конфигурации: {e}")
