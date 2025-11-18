@@ -2,6 +2,7 @@
 Менеджер конфигурации с полной валидацией и безопасной загрузкой
 """
 
+import json
 import json5
 import logging
 import os
@@ -107,7 +108,7 @@ class ConfigManager:
                     "base_url": {"type": "string"},
                     "api_key": {"type": "string"},
                     "model": {"type": "string", "minLength": 1},
-                    "timeout": {"type": "integer", "minimum": 10, "maximum": 300},
+                    "timeout": {"type": "integer", "minimum": 10, "maximum": 3000},
                     "max_tokens": {"type": "integer", "minimum": 100, "maximum": 8000}
                 }
             },
@@ -208,7 +209,7 @@ class ConfigManager:
             self._is_loaded = True
             logging.info(f"✅ Конфигурация успешно загружена из {self.config_path}")
             
-        except json5.JSONDecodeError as e:
+        except json.JSONDecodeError as e:
             raise ConfigValidationError(f"Ошибка парсинга JSON: {e}")
         except Exception as e:
             logging.error(f"❌ Ошибка загрузки конфигурации: {e}")
