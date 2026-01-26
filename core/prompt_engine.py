@@ -98,9 +98,6 @@ class PromptEngine:
             template_params = {
                 'language_name': language_name,
                 'theme': theme,
-                'min_lines': self.line_range['min'],
-                'max_lines': self.line_range['max'],
-                'output_example': self.output_example
             }
             
             # Используем безопасную подстановку через Template
@@ -139,7 +136,7 @@ class PromptEngine:
         
         format_section.extend([
             "Убедись что:",
-            f"- Количество реплик: {self.line_range['min']}-{self.line_range['max']}",
+            f"- Количество реплик: {random.randrange(self.line_range['min'], self.line_range['max'])}",
             "- Все реплики в массиве 'dialog'",
             "- Пользователь всегда говорит первым",
             "- Не используешь префиксы (User:, Assistant: и т.д.)",
