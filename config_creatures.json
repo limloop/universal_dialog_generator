@@ -1,4 +1,6 @@
 {
+  "task_type": "dialog_generation",
+  
   "generation": {
     "threads": 2,
     "temperature": {
@@ -18,6 +20,7 @@
     "request_delay": 0.5,
     "max_errors": 5
   },
+  
   "api": {
     "base_url": "https://api.openai.com/v1",
     "api_key": "your-openai-api-key",
@@ -25,6 +28,7 @@
     "timeout": 30,
     "max_tokens": 2000
   },
+  
   "prompt_templates": {
     "base": "Создай детализированный JSON-объект с описанием фэнтезийного существа на русском и английском языках.\n\nТема существа: \"${theme}\"\n\nТребования:\n- Верни ТОЛЬКО валидный JSON без каких-либо пояснений\n- JSON должен соответствовать этой структуре:\n\n{\n  \"name_ru\": \"Название на русском\",\n  \"name_en\": \"Name in English\", \n  \"description_ru\": \"Описание на русском\",\n  \"description_en\": \"Description in English\",\n  \"appearance_ru\": \"Внешность на русском\",\n  \"appearance_en\": \"Appearance in English\",\n  \"lore_ru\": \"Лор на русском\", \n  \"lore_en\": \"Lore in English\",\n  \"traits_ru\": [\"черта1\", \"черта2\", \"черта3\", \"черта4\"],\n  \"traits_en\": [\"trait1\", \"trait2\", \"trait3\", \"trait4\"],\n  \"habitat_ru\": \"Место обитания\",\n  \"habitat_en\": \"Habitat\",\n  \"abilities_ru\": [\"способность1\", \"способность2\", \"способность3\"],\n  \"abilities_en\": [\"ability1\", \"ability2\", \"ability3\"],\n  \"behavior_ru\": \"Поведение на русском\",\n  \"behavior_en\": \"Behavior in English\",\n  \"diet\": \"carnivore/herbivore/omnivore/energy/mineral/photosynthesis/parasitic\",\n  \"social_structure\": \"solitary/pack/herd/hivemind/colonial/symbiotic/matriarchal\",\n  \"size\": \"tiny/small/medium/large/huge/gargantuan\", \n  \"difficulty\": \"easy/medium/hard/legendary\",\n  \"origin\": \"natural/magical/demonic/divine/mechanical/extradimensional\",\n  \"intelligence\": \"primitive/animal/sentient/sapient/superintelligent/collective\",\n  \"magic_type\": \"hydromancy/pyromancy/geomancy/aeromancy/necromancy/chronomancy/technomancy/biomancy/none\",\n  \"language\": \"ru_en\"\n}\n\nВАЖНО: Выбирай реалистичные характеристики! Стремись к:\n- origin: natural/magical\n- diet: carnivore/herbivore/omnivore (energy только для магических существ)\n\nВсе описания должны быть детальными и атмосферными. Английские версии - качественный перевод/адаптация русских. Стремись создавать приземленных существ, которых можно вписать в обычные экосистемы.",
 
@@ -114,6 +118,7 @@
       "swimming_style": ["стремительный", "медленный", "извивающийся", "парящий", "реактивный", "волнообразный", "волнообразный танец", "вращательное движение", "зигзагообразный полет", "парящее скольжение", "пульсирующие толчки", "спиральное вращение", "мерцающее перемещение", "эхолоцирующее движение", "стремительный бросок", "медленное парение", "извилистое скольжение", "реактивный толчок", "волнообразные движения", "прямолинейный путь", "круговое плавание", "зигзагообразный маршрут"]
     }
   },
+  
   "output_schema": {
     "fields": [
       "name_ru", "name_en", 
@@ -127,7 +132,7 @@
       "diet", "social_structure",
       "size", "difficulty", "origin", 
       "intelligence", "magic_type",
-      "language"
+      "language", "temperature", "timestamp", "worker_id"
     ],
     "example": {
       "name_ru": "Морской Хранитель",
@@ -153,9 +158,13 @@
       "origin": "divine",
       "intelligence": "superintelligent",
       "magic_type": "hydromancy",
-      "language": "ru_en"
+      "language": "ru_en",
+      "temperature": 0.65,
+      "timestamp": 1234567890,
+      "worker_id": 1
     }
   },
+  
   "output": {
     "filename": "creatures.jsonl",
     "max_file_size_mb": 50,

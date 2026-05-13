@@ -134,14 +134,14 @@ class PromptEngine:
         if required_fields:
             format_section.append(f"Обязательные поля: {', '.join(required_fields)}")
         
-        format_section.extend([
-            "Убедись что:",
-            f"- Количество реплик: {random.randrange(self.line_range['min'], self.line_range['max'])}",
-            "- Все реплики в массиве 'dialog'",
-            "- Пользователь всегда говорит первым",
-            "- Не используешь префиксы (User:, Assistant: и т.д.)",
-            "- JSON валиден и правильно экранирован"
-        ])
+        # format_section.extend([
+        #     "Убедись что:",
+        #     f"- Количество реплик: {random.randrange(self.line_range['min'], self.line_range['max'])}",
+        #     "- Все реплики в массиве 'dialog'",
+        #     "- Пользователь всегда говорит первым",
+        #     "- Не используешь префиксы (User:, Assistant: и т.д.)",
+        #     "- JSON валиден и правильно экранирован"
+        # ])
         
         return "\n".join(format_section)
     

@@ -1,7 +1,7 @@
 """
 Безопасный клиент для работы с OpenAI-совместимыми API с retry логикой и мониторингом
 """
-
+import httpx
 import logging
 import json
 import time
@@ -46,11 +46,13 @@ class APIClient:
         Инициализация OpenAI клиента
         """
         try:
+            http_client = httpx.Client(proxy="http://127.0.0.1:8118")
             self.client = OpenAI(
                 base_url=self.api_config.get('base_url', 'https://api.openai.com/v1'),
                 api_key=self.api_config.get('api_key'),
                 timeout=self.api_config.get('timeout', 30.0),
-                max_retries=0  # Мы сами реализуем retry логику
+                max_retries=0,  # Мы сами реализуем retry логику
+                http_client=http_client,
             )
         except Exception as e:
             logging.error(f"❌ Ошибка инициализации API клиента: {e}")
@@ -113,7 +115,7 @@ class APIClient:
                 messages=[
                     {
                         "role": "system", 
-                        "content": "Ты - эксперт по созданию естественных диалогов. Всегда возвращай валидный JSON."
+                        "content": "Всегда возвращай валидный JSON."
                     },
                     {
                         "role": "user", 
@@ -124,6 +126,8 @@ class APIClient:
                 max_tokens=self.api_config.get('max_tokens', 2000),
                 timeout=dynamic_timeout,
                 # response_format={"type": "json_object"}
+                extra_body={"reasoning": {"enabled": True}}
+
             )
             
             return response
@@ -175,7 +179,6 @@ class APIClient:
             return data
             
         except json.JSONDecodeError as e:
-            print(response)
             logging.error(f"❌ Ошибка парсинга JSON из ответа API: {e}")
             logging.debug(f"Сырой ответ: {content[:200]}...")
             return None

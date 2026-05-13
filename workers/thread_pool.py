@@ -1,19 +1,26 @@
 """
 Менеджер пула потоков для безопасной и эффективной параллельной генерации
+Поддерживает два режима работы:
+1. dialog_generation - генерация диалогов (оригинальный режим)
+2. translation - перевод текстов из датасета
 """
 
 import threading
 import time
 import logging
+import queue
 from typing import Dict, List, Any, Optional
 
 from workers.worker_thread import WorkerThread
+from workers.translation_worker import TranslationWorkerThread
+from core.task_manager import TranslationTaskManager
 from storage.thread_safe_writer import ThreadSafeWriter
 
 
 class ThreadPoolManager:
     """
     Управление пулом рабочих потоков с мониторингом и graceful shutdown
+    Поддерживает разные типы воркеров в зависимости от конфигурации
     """
     
     def __init__(self, config: Dict[str, Any], writer: ThreadSafeWriter):
@@ -26,7 +33,12 @@ class ThreadPoolManager:
         """
         self.config = config
         self.writer = writer
-        self.workers: List[WorkerThread] = []
+        self.workers: List[Any] = []  # Может быть WorkerThread или TranslationWorkerThread
+        self.task_type = config.get('task_type', 'dialog_generation')
+        
+        # Специфичные для translation режима компоненты
+        self.task_queue: Optional[queue.Queue] = None
+        self.task_manager: Optional[TranslationTaskManager] = None
         
         # Примитивы синхронизации
         self._pool_lock = threading.RLock()
@@ -42,16 +54,44 @@ class ThreadPoolManager:
         self._failed_groups = 0
         self._start_time: Optional[float] = None
         
-        logging.info("🔄 ThreadPoolManager инициализирован")
+        logging.info(f"🔄 ThreadPoolManager инициализирован (режим: {self.task_type})")
     
     def _update_stats_callback(self, success: bool) -> None:
         """
         Callback для обновления статистики от рабочих потоков
         
         Args:
-            success: True если группа диалогов успешно сгенерирована
+            success: True если задача успешно выполнена
         """
         self.update_stats(success)
+    
+    def _init_translation_components(self) -> bool:
+        """
+        Инициализация компонентов для режима перевода
+        
+        Returns:
+            True если инициализация успешна
+        """
+        try:
+            # Создаем менеджер задач
+            self.task_manager = TranslationTaskManager(
+                translation_config=self.config['translation'],
+                output_schema=self.config['output_schema']
+            )
+            
+            # Получаем очередь задач
+            self.task_queue = self.task_manager.get_task_queue()
+            
+            logging.info(f"✅ Инициализирован TranslationTaskManager")
+            logging.info(f"📊 Всего задач: {self.task_manager.get_total_tasks()}")
+            logging.info(f"📈 Выполнено: {self.task_manager.get_processed_count()}")
+            logging.info(f"❌ Ошибок: {self.task_manager.get_failed_count()}")
+            
+            return True
+            
+        except Exception as e:
+            logging.error(f"❌ Ошибка инициалиции translation компонентов: {e}")
+            return False
     
     def start_generation(self) -> bool:
         """
@@ -66,34 +106,75 @@ class ThreadPoolManager:
                 return False
             
             try:
-                thread_count = self.config['generation']['threads']
+                # Определяем количество потоков
+                if self.task_type == 'translation':
+                    thread_count = self.config['translation'].get('threads', 2)
+                else:
+                    thread_count = self.config['generation']['threads']
                 
                 if thread_count <= 0:
                     logging.error("❌ Некорректное количество потоков")
                     return False
                 
+                # Инициализируем translation компоненты если нужно
+                if self.task_type == 'translation':
+                    if not self._init_translation_components():
+                        return False
+                
                 # Создание и запуск рабочих потоков
                 for i in range(thread_count):
-                    worker = WorkerThread(
-                        worker_id=i + 1,
-                        config=self.config,
-                        writer=self.writer,
-                        stats_callback=self._update_stats_callback  # Добавляем callback
-                    )
-                    worker.start()
-                    self.workers.append(worker)
+                    worker = self._create_worker(i + 1)
+                    if worker:
+                        worker.start()
+                        self.workers.append(worker)
+                    else:
+                        logging.error(f"❌ Не удалось создать воркер {i + 1}")
+                        return False
                 
                 self._is_running = True
                 self._shutdown_requested = False
                 self._start_time = time.time()
                 
-                logging.info(f"🚀 Запущено {len(self.workers)} рабочих потоков")
+                logging.info(f"🚀 Запущено {len(self.workers)} рабочих потоков (режим: {self.task_type})")
                 return True
                 
             except Exception as e:
                 logging.error(f"❌ Ошибка запуска пула потоков: {e}")
                 self._cleanup_workers()
                 return False
+    
+    def _create_worker(self, worker_id: int) -> Optional[Any]:
+        """
+        Создание рабочего потока в зависимости от режима
+        
+        Args:
+            worker_id: Уникальный идентификатор потока
+            
+        Returns:
+            Экземпляр воркера или None при ошибке
+        """
+        try:
+            if self.task_type == 'translation':
+                # Воркер для перевода
+                return TranslationWorkerThread(
+                    worker_id=worker_id,
+                    config=self.config,
+                    task_queue=self.task_queue,
+                    task_manager=self.task_manager,
+                    writer=self.writer,
+                    stats_callback=self._update_stats_callback
+                )
+            else:
+                # Оригинальный воркер для диалогов
+                return WorkerThread(
+                    worker_id=worker_id,
+                    config=self.config,
+                    writer=self.writer,
+                    stats_callback=self._update_stats_callback
+                )
+        except Exception as e:
+            logging.error(f"❌ Ошибка создания воркера {worker_id}: {e}")
+            return None
     
     def stop_generation(self, timeout: float = 30.0) -> bool:
         """
@@ -118,6 +199,14 @@ class ThreadPoolManager:
             for worker in self.workers:
                 worker.request_stop()
             
+            # Для translation режима добавляем сигнал завершения в очередь
+            if self.task_type == 'translation' and self.task_queue:
+                for _ in range(len(self.workers)):
+                    try:
+                        self.task_queue.put(None, timeout=1)
+                    except queue.Full:
+                        pass
+            
             # Ожидаем завершения потоков
             all_stopped = self._wait_for_workers_stop(timeout)
             
@@ -125,6 +214,11 @@ class ThreadPoolManager:
                 logging.info("✅ Все рабочие потоки остановлены")
             else:
                 logging.warning("⚠️ Некоторые потоки не остановились вовремя")
+            
+            # Сохраняем финальный чекпоинт для translation режима
+            if self.task_type == 'translation' and self.task_manager:
+                self.task_manager.save_checkpoint()
+                logging.info(f"💾 Финальный чекпоинт сохранен: {self.task_manager.checkpoint_file}")
             
             self._cleanup_workers()
             return all_stopped
@@ -148,13 +242,17 @@ class ThreadPoolManager:
             if not alive_workers:
                 return True
             
-            logging.info(f"⏳ Ожидание остановки {len(alive_workers)} потоков...")
+            # Выводим прогресс остановки
+            if len(alive_workers) != len(self.workers):
+                logging.info(f"⏳ Ожидание остановки {len(alive_workers)}/{len(self.workers)} потоков...")
+            
             time.sleep(1)
         
         # Форсируем завершение оставшихся потоков
         alive_workers = [w for w in self.workers if w.is_alive()]
         for worker in alive_workers:
-            logging.warning(f"⚠️ Принудительная остановка потока {worker.worker_id}")
+            worker_id = getattr(worker, 'worker_id', 'unknown')
+            logging.warning(f"⚠️ Принудительная остановка потока {worker_id}")
         
         return len(alive_workers) == 0
     
@@ -166,6 +264,12 @@ class ThreadPoolManager:
                     worker.cleanup()
             
             self.workers.clear()
+            
+            # Очистка translation компонентов
+            if self.task_manager:
+                self.task_manager = None
+            if self.task_queue:
+                self.task_queue = None
                 
         except Exception as e:
             logging.error(f"❌ Ошибка очистки ресурсов пула: {e}")
@@ -175,7 +279,7 @@ class ThreadPoolManager:
         Обновление статистики генерации
         
         Args:
-            success: True если группа диалогов успешно сгенерирована
+            success: True если задача успешно выполнена
         """
         with self._stats_lock:
             self._total_groups_generated += 1
@@ -184,9 +288,9 @@ class ThreadPoolManager:
             else:
                 self._failed_groups += 1
             
-            # Логируем каждую 10-ю успешную группу для отслеживания прогресса
+            # Логируем каждую 10-ю успешную задачу для отслеживания прогресса
             if success and self._successful_groups % 10 == 0:
-                logging.info(f"📈 Успешно сгенерировано групп: {self._successful_groups}")
+                logging.info(f"📈 Успешно выполнено задач: {self._successful_groups}")
     
     def get_stats(self) -> Dict[str, Any]:
         """
@@ -199,9 +303,10 @@ class ThreadPoolManager:
             active_workers = len([w for w in self.workers if w.is_alive() and getattr(w, 'is_working', False)])
             
             stats = {
-                'total_pairs': self._total_groups_generated,  # Исправлено: должно быть total_pairs
-                'successful_pairs': self._successful_groups,  # Исправлено: должно быть successful_pairs
-                'failed_pairs': self._failed_groups,          # Исправлено: должно быть failed_pairs
+                'task_type': self.task_type,
+                'total_pairs': self._total_groups_generated,
+                'successful_pairs': self._successful_groups,
+                'failed_pairs': self._failed_groups,
                 'active_workers': active_workers,
                 'total_workers': len(self.workers),
                 'success_rate': 0,
@@ -216,6 +321,16 @@ class ThreadPoolManager:
             # Время работы
             if self._start_time:
                 stats['uptime_seconds'] = time.time() - self._start_time
+            
+            # Добавляем статистику из task_manager для translation режима
+            if self.task_type == 'translation' and self.task_manager:
+                stats['translation_stats'] = {
+                    'total_tasks': self.task_manager.get_total_tasks(),
+                    'processed': self.task_manager.get_processed_count(),
+                    'failed': self.task_manager.get_failed_count(),
+                    'remaining': self.task_manager.get_remaining_count(),
+                    'checkpoint_file': self.task_manager.checkpoint_file
+                }
             
             return stats
     
@@ -247,19 +362,18 @@ class ThreadPoolManager:
             
             for i, worker in enumerate(self.workers):
                 if not worker.is_alive():
-                    logging.warning(f"🔄 Перезапуск упавшего потока {worker.worker_id}")
+                    worker_id = getattr(worker, 'worker_id', i + 1)
+                    logging.warning(f"🔄 Перезапуск упавшего потока {worker_id}")
                     
                     try:
-                        new_worker = WorkerThread(
-                            worker_id=worker.worker_id,
-                            config=self.config,
-                            writer=self.writer,
-                            stats_callback=self._update_stats_callback  # Добавляем callback
-                        )
-                        new_worker.start()
-                        self.workers[i] = new_worker
+                        new_worker = self._create_worker(worker_id)
+                        if new_worker:
+                            new_worker.start()
+                            self.workers[i] = new_worker
+                        else:
+                            logging.error(f"❌ Не удалось перезапустить поток {worker_id}")
                     except Exception as e:
-                        logging.error(f"❌ Ошибка перезапуска потока {worker.worker_id}: {e}")
+                        logging.error(f"❌ Ошибка перезапуска потока {worker_id}: {e}")
     
     def monitor_workers_health(self) -> Dict[str, Any]:
         """
@@ -269,6 +383,7 @@ class ThreadPoolManager:
             Статистика здоровья потоков
         """
         health_stats = {
+            'task_type': self.task_type,
             'total_workers': len(self.workers),
             'alive_workers': 0,
             'working_workers': 0,
@@ -278,7 +393,8 @@ class ThreadPoolManager:
         
         for worker in self.workers:
             worker_info = {
-                'worker_id': worker.worker_id,
+                'worker_id': getattr(worker, 'worker_id', 'unknown'),
+                'type': worker.__class__.__name__,
                 'is_alive': worker.is_alive(),
                 'is_working': getattr(worker, 'is_working', False),
                 'error_count': getattr(worker, 'error_count', 0),
@@ -293,7 +409,27 @@ class ThreadPoolManager:
             else:
                 health_stats['failed_workers'] += 1
         
+        # Добавляем информацию о прогрессе для translation режима
+        if self.task_type == 'translation' and self.task_manager:
+            health_stats['progress'] = {
+                'completed': self.task_manager.get_processed_count(),
+                'failed': self.task_manager.get_failed_count(),
+                'total': self.task_manager.get_total_tasks(),
+                'percentage': self.task_manager.get_progress_percentage()
+            }
+        
         return health_stats
+    
+    def get_checkpoint_info(self) -> Optional[Dict[str, Any]]:
+        """
+        Получение информации о чекпоинте (для translation режима)
+        
+        Returns:
+            Словарь с информацией о чекпоинте или None
+        """
+        if self.task_type == 'translation' and self.task_manager:
+            return self.task_manager.get_checkpoint_info()
+        return None
     
     def __enter__(self):
         """Поддержка context manager"""

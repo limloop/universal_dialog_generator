@@ -1,0 +1,60 @@
+{
+  "task_type": "translation",
+  
+  "api": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "your-openai-api-key",
+    "model": "gpt-3.5-turbo",
+    "timeout": 60,
+    "max_tokens": 1000
+  },
+  
+  "translation": {
+    "dataset": {
+      "source": "huggingface",
+      "path": "limloop/ru_en_story_pairs",
+      "split": "train",
+      "fields": {
+        "id": "id",
+        "text": "text_en"
+      },
+      "filter": {
+        "language": "en"
+      },
+      "limit": 100
+    },
+    
+    "target_language": "tokipona",
+    "threads": 2,
+    "temperature": 0.3,
+    "max_retries": 3,
+    "retry_delay_seconds": 5,
+    "max_errors": 10,
+    
+    "prompt_template": {
+      "system": "Ты профессиональный переводчик на токипону (toki pona). Токипона — минималистичный язык с ~120 словами. Переводи, сохраняя смысл, но упрощая сложные концепты до описательных фраз. Используй базовые грамматические конструкции и избегай сложных заимствований.",
+      "user": "Переведи следующий текст на {target_language}.\n\nОригинал на английском:\n{original_text}\n\nПеревод на {target_language}:"
+    },
+    
+    "checkpoint_file": "translation_progress.json"
+  },
+  
+  "output_schema": {
+    "fields": ["id", "original_text", "translated_text", "target_language", "temperature", "timestamp", "worker_id"],
+    "example": {
+      "id": 1,
+      "original_text": "Hello, how are you?",
+      "translated_text": "toki! sina pilin seme?",
+      "target_language": "tokipona",
+      "temperature": 0.3,
+      "timestamp": 1234567890,
+      "worker_id": 1
+    }
+  },
+  
+  "output": {
+    "filename": "translations.jsonl",
+    "max_file_size_mb": 50,
+    "backup_count": 5
+  }
+}

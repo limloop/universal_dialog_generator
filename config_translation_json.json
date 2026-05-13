@@ -1,0 +1,50 @@
+{
+  "task_type": "translation",
+  
+  "api": {
+    "base_url": "https://api.openai.com/v1",
+    "api_key": "your-openai-api-key",
+    "model": "gpt-4",
+    "timeout": 120,
+    "max_tokens": 2000
+  },
+  
+  "translation": {
+    "dataset": {
+      "source": "local",
+      "path": "data/sentences.json",
+      "fields": {
+        "id": "sentence_id",
+        "text": "text"
+      },
+      "limit": 500
+    },
+    
+    "target_language": "russian",
+    "threads": 4,
+    "temperature": 0.2,
+    "max_retries": 5,
+    "retry_delay_seconds": 3,
+    
+    "prompt_template": {
+      "system": "Ты профессиональный переводчик. Переводи точно и сохраняй стиль оригинала.",
+      "user": "Переведи на {target_language}:\n\n{original_text}"
+    }
+  },
+  
+  "output_schema": {
+    "fields": ["id", "original_text", "translated_text", "target_language"],
+    "example": {
+      "id": 1,
+      "original_text": "The quick brown fox jumps over the lazy dog",
+      "translated_text": "Быстрая коричневая лиса перепрыгивает через ленивую собаку",
+      "target_language": "russian"
+    }
+  },
+  
+  "output": {
+    "filename": "russian_translations.jsonl",
+    "max_file_size_mb": 100,
+    "backup_count": 3
+  }
+}
