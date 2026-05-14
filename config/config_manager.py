@@ -68,7 +68,17 @@ class ConfigManager:
                     "api_key": {"type": "string"},
                     "model": {"type": "string", "minLength": 1},
                     "timeout": {"type": "integer", "minimum": 10, "maximum": 3000},
-                    "max_tokens": {"type": "integer", "minimum": 100, "maximum": 100000}
+                    "max_tokens": {"type": "integer", "minimum": 100, "maximum": 100000},
+                    "proxy": {
+                        "type": "string",
+                        "description": "Прокси сервер (например, http://127.0.0.1:8118)",
+                        "default": None
+                    },
+                    "enable_reasoning": {
+                        "type": "boolean",
+                        "description": "Включить reasoning для моделей, которые поддерживают",
+                        "default": False
+                    }
                 }
             },
             "output_schema": {

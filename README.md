@@ -46,7 +46,9 @@ pip install datasets
   "api": {
     "base_url": "https://api.openai.com/v1",
     "api_key": "your-api-key-here",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-3.5-turbo",
+    "proxy": "http://127.0.0.1:8118",  // Прокси-сервер (опционально)
+    "enable_reasoning": false          // Режим reasoning (опционально)
   },
   "generation": {
     "threads": 2,
@@ -109,6 +111,12 @@ python main.py
 - **LocalAI** - `http://localhost:8080/v1`
 - **Любой OpenAI-совместимый API**
 
+### Настройки API
+
+Дополнительные параметры API:
+- **Прокси** - поддержка работы через прокси-серверы
+- **Reasoning** - включение режима reasoning для моделей, которые его поддерживают (например, o1-серия)
+
 ### Общие параметры
 
 | Параметр | Описание | Значение по умолчанию |
@@ -122,6 +130,9 @@ python main.py
 | `output.filename` | Имя выходного файла | `dialogues.jsonl` |
 | `output.max_file_size_mb` | Макс. размер файла перед ротацией | `100` |
 | `output.backup_count` | Количество backup-файлов | `5` |
+| `api.max_tokens` | Максимум токенов в ответе | `2000` |
+| `api.proxy` | Прокси-сервер (например, `http://127.0.0.1:8118`) | `None` |
+| `api.enable_reasoning` | Включить reasoning для поддерживаемых моделей | `false` |
 
 ### Режим генерации диалогов (`dialog_generation`)
 
@@ -348,6 +359,35 @@ universal_dialog_generator/
 
 **Важно:** схема должна быть **плоской** (без вложенных объектов). Массивы поддерживаются.
 
+### Работа через прокси
+
+Для работы через прокси-сервер добавьте в конфиг:
+
+```json
+{
+  "api": {
+    "proxy": "http://127.0.0.1:8118"
+  }
+}
+```
+
+Поддерживаются форматы:
+- `http://host:port`
+- `https://host:port`
+- `socks5://host:port`
+
+### Режим Reasoning
+
+Для моделей, поддерживающих reasoning (например, OpenAI o1), включите:
+
+```json
+{
+  "api": {
+    "enable_reasoning": true
+  }
+}
+```
+
 ## 🔄 Чекпоинты и восстановление
 
 ### Режим генерации диалогов
@@ -384,6 +424,11 @@ universal_dialog_generator/
 **Ошибки загрузки датасета (translation):**
 - Для HF: установите `pip install datasets`
 - Для локальных файлов: проверьте путь и формат (JSON/JSONL)
+
+**Проблемы с соединением через прокси:**
+- Проверьте правильность URL прокси в поле `api.proxy`
+- Убедитесь, что прокси-сервер доступен
+- Проверьте формат: `http://host:port`, `https://host:port` или `socks5://host:port`
 
 ### 📚 Дополнительные инструменты
 
@@ -435,7 +480,9 @@ Choose operation mode by editing `config.json`:
   "api": {
     "base_url": "https://api.openai.com/v1",
     "api_key": "your-api-key-here",
-    "model": "gpt-3.5-turbo"
+    "model": "gpt-3.5-turbo",
+    "proxy": "http://127.0.0.1:8118",  // Proxy server (optional)
+    "enable_reasoning": false          // Reasoning mode (optional)
   },
   "generation": {
     "threads": 2,
@@ -498,6 +545,12 @@ python main.py
 - **LocalAI** - `http://localhost:8080/v1`
 - **Any OpenAI-compatible API**
 
+### API Settings
+
+Additional API parameters:
+- **Proxy** - support for working through proxy servers
+- **Reasoning** - enable reasoning mode for models that support it (e.g., o1 series)
+
 ### Common Parameters
 
 | Parameter | Description | Default |
@@ -511,6 +564,9 @@ python main.py
 | `output.filename` | Output file name | `dialogues.jsonl` |
 | `output.max_file_size_mb` | Max file size before rotation | `100` |
 | `output.backup_count` | Number of backup files | `5` |
+| `api.max_tokens` | Maximum tokens in response | `2000` |
+| `api.proxy` | Proxy server (e.g., `http://127.0.0.1:8118`) | `None` |
+| `api.enable_reasoning` | Enable reasoning for supported models | `false` |
 
 ### Dialog Generation Mode (`dialog_generation`)
 
@@ -737,6 +793,35 @@ universal_dialog_generator/
 
 **Important:** Schema must be **flat** (no nested objects). Arrays are supported.
 
+### Working through Proxy
+
+To work through a proxy server, add to config:
+
+```json
+{
+  "api": {
+    "proxy": "http://127.0.0.1:8118"
+  }
+}
+```
+
+Supported formats:
+- `http://host:port`
+- `https://host:port`
+- `socks5://host:port`
+
+### Reasoning Mode
+
+For models that support reasoning (e.g., OpenAI o1), enable:
+
+```json
+{
+  "api": {
+    "enable_reasoning": true
+  }
+}
+```
+
 ## 🔄 Checkpoints and Recovery
 
 ### Dialog Generation Mode
@@ -773,6 +858,11 @@ universal_dialog_generator/
 **Dataset loading errors (translation):**
 - For HF: install `pip install datasets`
 - For local files: check path and format (JSON/JSONL)
+
+**Connection issues through proxy:**
+- Verify the proxy URL in `api.proxy` field
+- Ensure the proxy server is available
+- Check format: `http://host:port`, `https://host:port`, or `socks5://host:port`
 
 ### 📚 Additional Tools
 

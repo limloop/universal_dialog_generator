@@ -43,10 +43,26 @@ class APIClient:
     
     def _initialize_client(self) -> None:
         """
-        Инициализация OpenAI клиента
+        Инициализация OpenAI клиента с поддержкой прокси
         """
         try:
-            http_client = httpx.Client(proxy="http://127.0.0.1:8118")
+            # Настройка HTTP клиента с прокси (если указан)
+            http_client_kwargs = {}
+            
+            # Проверяем наличие прокси в конфиге
+            proxy = self.api_config.get('proxy')
+            if proxy and isinstance(proxy, str) and proxy.strip():
+                http_client_kwargs['proxy'] = proxy
+                logging.info(f"🔌 Используется прокси: {proxy}")
+            else:
+                logging.debug("ℹ️ Прокси не настроен, используется прямое соединение")
+            
+            # Создаем HTTP клиент с прокси (если указан)
+            if http_client_kwargs:
+                http_client = httpx.Client(**http_client_kwargs)
+            else:
+                http_client = httpx.Client()
+            
             self.client = OpenAI(
                 base_url=self.api_config.get('base_url', 'https://api.openai.com/v1'),
                 api_key=self.api_config.get('api_key'),
@@ -110,9 +126,10 @@ class APIClient:
             # Динамический timeout в зависимости от попытки
             dynamic_timeout = self.api_config.get('timeout', 30) * (attempt + 1)
             
-            response = self.client.chat.completions.create(
-                model=self.api_config['model'],
-                messages=[
+            # Базовые параметры запроса
+            request_params = {
+                "model": self.api_config['model'],
+                "messages": [
                     {
                         "role": "system", 
                         "content": "Всегда возвращай валидный JSON."
@@ -122,13 +139,16 @@ class APIClient:
                         "content": prompt
                     }
                 ],
-                temperature=temperature,
-                max_tokens=self.api_config.get('max_tokens', 2000),
-                timeout=dynamic_timeout,
-                # response_format={"type": "json_object"}
-                extra_body={"reasoning": {"enabled": True}}
-
-            )
+                "temperature": temperature,
+                "max_tokens": self.api_config.get('max_tokens', 2000),
+                "timeout": dynamic_timeout,
+            }
+            
+            # Добавляем reasoning только если модель поддерживает (опционально)
+            if self.api_config.get('enable_reasoning', False):
+                request_params["extra_body"] = {"reasoning": {"enabled": True}}
+            
+            response = self.client.chat.completions.create(**request_params)
             
             return response
             
@@ -161,7 +181,13 @@ class APIClient:
         try:
             content = response.choices[0].message.content.strip()
             if not content:
-                content = response.choices[0].message.reasoning.partition("</think>")[2].strip()
+                # Пробуем взять из reasoning поля если доступно
+                if hasattr(response.choices[0].message, 'reasoning') and response.choices[0].message.reasoning:
+                    reasoning_parts = response.choices[0].message.reasoning.partition("</think>")
+                    if reasoning_parts:
+                        content = reasoning_parts[2].strip()
+            
+            # Удаляем маркеры кода
             content = content.replace("```json", "").replace("```", "")
 
             if not content:
