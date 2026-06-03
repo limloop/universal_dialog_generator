@@ -126,10 +126,9 @@ class APIClient:
             # Динамический timeout в зависимости от попытки
             dynamic_timeout = self.api_config.get('timeout', 30) * (attempt + 1)
             
-            # Базовые параметры запроса
-            request_params = {
-                "model": self.api_config['model'],
-                "messages": [
+            response = self.client.chat.completions.create(
+                model=self.api_config['model'],
+                messages=[
                     {
                         "role": "system", 
                         "content": "Всегда возвращай валидный JSON."
@@ -139,16 +138,11 @@ class APIClient:
                         "content": prompt
                     }
                 ],
-                "temperature": temperature,
-                "max_tokens": self.api_config.get('max_tokens', 2000),
-                "timeout": dynamic_timeout,
-            }
-            
-            # Добавляем reasoning только если модель поддерживает (опционально)
-            if self.api_config.get('enable_reasoning', False):
-                request_params["extra_body"] = {"reasoning": {"enabled": True}}
-            
-            response = self.client.chat.completions.create(**request_params)
+                temperature=temperature,
+                max_tokens=self.api_config.get('max_tokens', 2000),
+                timeout=dynamic_timeout,
+                extra_body={"reasoning": {"enabled": self.api_config.get('enable_reasoning', False)}}
+            )
             
             return response
             
